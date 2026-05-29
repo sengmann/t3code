@@ -162,7 +162,7 @@ export interface DesktopBackendPoolShape {
 export class DesktopBackendPool extends Context.Service<
   DesktopBackendPool,
   DesktopBackendPoolShape
->()("t3/desktop/BackendPool") {}
+>()("@t3tools/desktop/backend/DesktopBackendPool") {}
 
 // Services required by makeBackendInstance — exported so caller
 // orchestrators that build their own specs can confirm the layer graph

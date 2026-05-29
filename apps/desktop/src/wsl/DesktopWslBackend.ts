@@ -51,7 +51,7 @@ export interface DesktopWslBackendShape {
 }
 
 export class DesktopWslBackend extends Context.Service<DesktopWslBackend, DesktopWslBackendShape>()(
-  "t3/desktop/WslBackend",
+  "@t3tools/desktop/wsl/DesktopWslBackend",
 ) {}
 
 const { logInfo: logWslBackendInfo, logWarning: logWslBackendWarning } =

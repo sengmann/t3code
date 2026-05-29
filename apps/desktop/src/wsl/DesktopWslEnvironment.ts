@@ -59,7 +59,7 @@ export interface DesktopWslEnvironmentShape {
 export class DesktopWslEnvironment extends Context.Service<
   DesktopWslEnvironment,
   DesktopWslEnvironmentShape
->()("t3/desktop/WslEnvironment") {}
+>()("@t3tools/desktop/wsl/DesktopWslEnvironment") {}
 
 const buildDistroArgs = (distro: string | null): ReadonlyArray<string> =>
   distro ? ["-d", distro] : [];
