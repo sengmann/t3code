@@ -54,7 +54,14 @@ export const setWslBackendEnabled = makeIpcMethod({
   handler: Effect.fn("desktop.ipc.wsl.setEnabled")(function* (enabled) {
     const appSettings = yield* DesktopAppSettings.DesktopAppSettings;
     const wslBackend = yield* DesktopWslBackend.DesktopWslBackend;
-    yield* appSettings.setWslBackendEnabled(enabled);
+    const lifecycle = yield* DesktopLifecycle.DesktopLifecycle;
+    const change = yield* appSettings.setWslBackendEnabled(enabled);
+    const settings = yield* appSettings.get;
+    if (settings.wslOnly && change.changed) {
+      const state = yield* readWslState;
+      yield* lifecycle.relaunch(`wslBackendEnabled=${enabled}`);
+      return state;
+    }
     // Reconcile is idempotent and never fails; no need for a swap-style
     // rollback when the WSL side has trouble coming up. With both
     // backends running side by side, "WSL didn't start" is a transient
