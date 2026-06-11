@@ -1,5 +1,7 @@
 import { useAtomValue } from "@effect/atom-react";
 import { DEFAULT_RECONNECT_BACKOFF, getReconnectDelayMs } from "@t3tools/client-runtime";
+import * as Duration from "effect/Duration";
+import * as Option from "effect/Option";
 import { Atom } from "effect/unstable/reactivity";
 
 import { appAtomRegistry } from "./atomRegistry";
@@ -7,10 +9,14 @@ import { appAtomRegistry } from "./atomRegistry";
 export type WsConnectionUiState = "connected" | "connecting" | "error" | "offline" | "reconnecting";
 export type WsReconnectPhase = "attempting" | "exhausted" | "idle" | "waiting";
 
-export const WS_RECONNECT_INITIAL_DELAY_MS = DEFAULT_RECONNECT_BACKOFF.initialDelayMs;
+export const WS_RECONNECT_INITIAL_DELAY_MS = Duration.toMillis(
+  Duration.fromInputUnsafe(DEFAULT_RECONNECT_BACKOFF.initialDelay),
+);
 export const WS_RECONNECT_BACKOFF_FACTOR = DEFAULT_RECONNECT_BACKOFF.backoffFactor;
-export const WS_RECONNECT_MAX_DELAY_MS = DEFAULT_RECONNECT_BACKOFF.maxDelayMs;
-export const WS_RECONNECT_MAX_RETRIES = DEFAULT_RECONNECT_BACKOFF.maxRetries!;
+export const WS_RECONNECT_MAX_DELAY_MS = Duration.toMillis(
+  Duration.fromInputUnsafe(DEFAULT_RECONNECT_BACKOFF.maxDelay),
+);
+export const WS_RECONNECT_MAX_RETRIES = Option.getOrThrow(DEFAULT_RECONNECT_BACKOFF.maxRetries);
 export const WS_RECONNECT_MAX_ATTEMPTS = WS_RECONNECT_MAX_RETRIES + 1;
 
 export interface WsConnectionStatus {

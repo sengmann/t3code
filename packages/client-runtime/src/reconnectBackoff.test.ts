@@ -1,65 +1,89 @@
-import { describe, expect, it } from "vite-plus/test";
+import { assert, describe, it } from "@effect/vitest";
+import * as Duration from "effect/Duration";
+import * as Option from "effect/Option";
 
 import {
   DEFAULT_RECONNECT_BACKOFF,
+  getReconnectDelay,
   getReconnectDelayMs,
   type ReconnectBackoffConfig,
 } from "./reconnectBackoff.ts";
 
-describe("getReconnectDelayMs", () => {
+function assertDelayMs(delay: Option.Option<Duration.Duration>, expectedMs: number) {
+  if (Option.isNone(delay)) {
+    assert.fail("Expected reconnect delay to be present");
+  }
+  assert.strictEqual(Duration.toMillis(delay.value), expectedMs);
+}
+
+describe("getReconnectDelay", () => {
   it("returns exponential delays with default config", () => {
-    expect(getReconnectDelayMs(0)).toBe(1_000);
-    expect(getReconnectDelayMs(1)).toBe(2_000);
-    expect(getReconnectDelayMs(2)).toBe(4_000);
-    expect(getReconnectDelayMs(3)).toBe(8_000);
-    expect(getReconnectDelayMs(4)).toBe(16_000);
-    expect(getReconnectDelayMs(5)).toBe(32_000);
-    expect(getReconnectDelayMs(6)).toBe(64_000);
+    assertDelayMs(getReconnectDelay(0), 1_000);
+    assertDelayMs(getReconnectDelay(1), 2_000);
+    assertDelayMs(getReconnectDelay(2), 4_000);
+    assertDelayMs(getReconnectDelay(3), 8_000);
+    assertDelayMs(getReconnectDelay(4), 16_000);
+    assertDelayMs(getReconnectDelay(5), 32_000);
+    assertDelayMs(getReconnectDelay(6), 64_000);
   });
 
-  it("returns null when retry index exceeds maxRetries", () => {
-    expect(getReconnectDelayMs(7)).toBeNull();
-    expect(getReconnectDelayMs(100)).toBeNull();
+  it("returns none when retry index exceeds maxRetries", () => {
+    assert.strictEqual(Option.isNone(getReconnectDelay(7)), true);
+    assert.strictEqual(Option.isNone(getReconnectDelay(100)), true);
   });
 
-  it("returns null for negative indices", () => {
-    expect(getReconnectDelayMs(-1)).toBeNull();
+  it("returns none for negative indices", () => {
+    assert.strictEqual(Option.isNone(getReconnectDelay(-1)), true);
   });
 
-  it("returns null for non-integer indices", () => {
-    expect(getReconnectDelayMs(1.5)).toBeNull();
+  it("returns none for non-integer indices", () => {
+    assert.strictEqual(Option.isNone(getReconnectDelay(1.5)), true);
   });
 
-  it("caps delay at maxDelayMs", () => {
+  it("caps delay at maxDelay", () => {
     const config: ReconnectBackoffConfig = {
-      initialDelayMs: 10_000,
+      initialDelay: Duration.seconds(10),
       backoffFactor: 10,
-      maxDelayMs: 30_000,
-      maxRetries: 5,
+      maxDelay: Duration.seconds(30),
+      maxRetries: Option.some(5),
     };
 
-    expect(getReconnectDelayMs(0, config)).toBe(10_000);
-    expect(getReconnectDelayMs(1, config)).toBe(30_000); // 100_000 capped to 30_000
-    expect(getReconnectDelayMs(2, config)).toBe(30_000); // 1_000_000 capped to 30_000
+    assertDelayMs(getReconnectDelay(0, config), 10_000);
+    assertDelayMs(getReconnectDelay(1, config), 30_000);
+    assertDelayMs(getReconnectDelay(2, config), 30_000);
   });
 
-  it("supports unlimited retries when maxRetries is null", () => {
+  it("supports unlimited retries when maxRetries is none", () => {
     const config: ReconnectBackoffConfig = {
       ...DEFAULT_RECONNECT_BACKOFF,
-      maxRetries: null,
+      maxRetries: Option.none(),
     };
 
-    expect(getReconnectDelayMs(0, config)).toBe(1_000);
-    expect(getReconnectDelayMs(50, config)).toBe(64_000); // capped at maxDelayMs
-    expect(getReconnectDelayMs(100, config)).toBe(64_000);
+    assertDelayMs(getReconnectDelay(0, config), 1_000);
+    assertDelayMs(getReconnectDelay(50, config), 64_000);
+    assertDelayMs(getReconnectDelay(100, config), 64_000);
+  });
+});
+
+describe("getReconnectDelayMs", () => {
+  it("returns millisecond values for compatibility", () => {
+    assert.strictEqual(getReconnectDelayMs(0), 1_000);
+    assert.strictEqual(getReconnectDelayMs(1), 2_000);
+    assert.strictEqual(getReconnectDelayMs(7), null);
   });
 });
 
 describe("DEFAULT_RECONNECT_BACKOFF", () => {
   it("has sensible defaults", () => {
-    expect(DEFAULT_RECONNECT_BACKOFF.initialDelayMs).toBe(1_000);
-    expect(DEFAULT_RECONNECT_BACKOFF.backoffFactor).toBe(2);
-    expect(DEFAULT_RECONNECT_BACKOFF.maxDelayMs).toBe(64_000);
-    expect(DEFAULT_RECONNECT_BACKOFF.maxRetries).toBe(7);
+    assert.strictEqual(
+      Duration.toMillis(Duration.fromInputUnsafe(DEFAULT_RECONNECT_BACKOFF.initialDelay)),
+      1_000,
+    );
+    assert.strictEqual(DEFAULT_RECONNECT_BACKOFF.backoffFactor, 2);
+    assert.strictEqual(
+      Duration.toMillis(Duration.fromInputUnsafe(DEFAULT_RECONNECT_BACKOFF.maxDelay)),
+      64_000,
+    );
+    assert.deepStrictEqual(DEFAULT_RECONNECT_BACKOFF.maxRetries, Option.some(7));
   });
 });

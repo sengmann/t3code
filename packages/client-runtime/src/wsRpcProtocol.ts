@@ -2,13 +2,15 @@ import { WsRpcGroup } from "@t3tools/contracts";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Schedule from "effect/Schedule";
+import * as Schema from "effect/Schema";
 import { RpcClient, RpcSerialization } from "effect/unstable/rpc";
 import * as Socket from "effect/unstable/socket/Socket";
 
 import {
   DEFAULT_RECONNECT_BACKOFF,
-  getReconnectDelayMs,
+  getReconnectDelay,
   type ReconnectBackoffConfig,
 } from "./reconnectBackoff.ts";
 
@@ -68,6 +70,10 @@ type RpcClientFactory = typeof makeWsRpcProtocolClient;
 export type WsRpcProtocolClient =
   RpcClientFactory extends Effect.Effect<infer Client, any, any> ? Client : never;
 export type WsRpcProtocolSocketUrlProvider = string | (() => Promise<string>);
+
+const decodeRpcPongMessage = Schema.decodeUnknownOption(
+  Schema.fromJsonString(Schema.Struct({ _tag: Schema.Literal("Pong") })),
+);
 
 function formatSocketErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message.trim().length > 0) {
@@ -234,13 +240,8 @@ export function createWsRpcProtocolLayer(
         { once: true },
       );
       socket.addEventListener("message", (event) => {
-        try {
-          const message = JSON.parse(String(event.data)) as { readonly _tag?: string };
-          if (message._tag === "Pong") {
-            lifecycle.onHeartbeatPong();
-          }
-        } catch {
-          // Ignore malformed messages here; the Effect RPC parser still owns protocol errors.
+        if (Option.isSome(decodeRpcPongMessage(String(event.data)))) {
+          lifecycle.onHeartbeatPong();
         }
       });
       socket.addEventListener(
@@ -266,10 +267,17 @@ export function createWsRpcProtocolLayer(
     Layer.provide(trackingWebSocketConstructorLayer),
   );
 
-  const baseSchedule =
-    backoff.maxRetries === null ? Schedule.forever : Schedule.recurs(backoff.maxRetries);
+  const baseSchedule = Option.match(backoff.maxRetries, {
+    onNone: () => Schedule.forever,
+    onSome: Schedule.recurs,
+  });
   const retryPolicy = Schedule.addDelay(baseSchedule, (retryCount) =>
-    Effect.succeed(Duration.millis(getReconnectDelayMs(retryCount, backoff) ?? 0)),
+    Effect.succeed(
+      Option.match(getReconnectDelay(retryCount, backoff), {
+        onNone: () => Duration.zero,
+        onSome: (delay) => delay,
+      }),
+    ),
   );
   const protocolLayer = Layer.effect(
     RpcClient.Protocol,
