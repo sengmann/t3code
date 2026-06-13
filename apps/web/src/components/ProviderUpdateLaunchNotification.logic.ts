@@ -691,3 +691,66 @@ export function localEnvironmentUpdateNotificationKey(
     .toSorted();
   return parts.length > 0 ? parts.join("|") : null;
 }
+
+export type ProviderUpdateRowStatusKind = "idle" | "loading" | "success" | "failed" | "unchanged";
+
+export interface ProviderUpdateRowStatus {
+  readonly kind: ProviderUpdateRowStatusKind;
+  readonly text: string;
+}
+
+function environmentProviderNames(group: LocalEnvironmentUpdateGroup): string {
+  return group.candidates
+    .map((candidate) => PROVIDER_DISPLAY_NAMES[candidate.driver] ?? candidate.driver)
+    .join(", ");
+}
+
+/**
+ * Resolve one environment row's display from every available signal, in
+ * priority order: a transport rejection, then the dispatch's own *terminal*
+ * result payload (reliable even when a secondary backend's config does not
+ * re-sync), then live server state (reliable even when the dispatch RPC is lost
+ * to a reconnect), then the optimistic pending spinner, then the idle state.
+ *
+ * A non-terminal result snapshot ("running") is intentionally skipped rather
+ * than treated as authoritative, so live server state can still drive the row
+ * to its terminal status instead of pinning it on "Updating…".
+ */
+export function resolveEnvironmentUpdateRowStatus(input: {
+  readonly group: LocalEnvironmentUpdateGroup;
+  readonly error: string | undefined;
+  readonly result: ProviderUpdateToastView | undefined;
+  readonly pill: ProviderUpdateSidebarPillView | null;
+  readonly isPending: boolean;
+}): ProviderUpdateRowStatus {
+  if (input.error) {
+    return { kind: "failed", text: input.error };
+  }
+  if (input.result) {
+    switch (input.result.phase) {
+      case "succeeded":
+        return { kind: "success", text: "Updated" };
+      case "failed":
+        return { kind: "failed", text: input.result.description };
+      case "unchanged":
+        return { kind: "unchanged", text: input.result.description };
+      // "running" / "initial": non-terminal snapshot — fall through to live state.
+    }
+  }
+  if (input.pill) {
+    switch (input.pill.tone) {
+      case "success":
+        return { kind: "success", text: "Updated" };
+      case "error":
+        return { kind: "failed", text: input.pill.description };
+      case "warning":
+        return { kind: "unchanged", text: input.pill.description };
+      default:
+        return { kind: "loading", text: "Updating…" };
+    }
+  }
+  if (input.isPending) {
+    return { kind: "loading", text: "Updating…" };
+  }
+  return { kind: "idle", text: environmentProviderNames(input.group) };
+}

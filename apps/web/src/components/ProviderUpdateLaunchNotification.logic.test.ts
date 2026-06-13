@@ -18,7 +18,9 @@ import {
   firstUnsuccessfulSecondaryProviderOutcome,
   localEnvironmentUpdateNotificationKey,
   parseWslDistroFromInstanceId,
+  resolveEnvironmentUpdateRowStatus,
   type LocalEnvironmentProvidersInput,
+  type LocalEnvironmentUpdateGroup,
   getProviderUpdateInitialToastView,
   getProviderUpdateProgressToastView,
   getProviderUpdateRejectedToastView,
@@ -28,6 +30,8 @@ import {
   isProviderUpdateCandidate,
   providerUpdateNotificationKey,
   type ProviderUpdateCandidate,
+  type ProviderUpdateSidebarPillView,
+  type ProviderUpdateToastView,
 } from "./ProviderUpdateLaunchNotification.logic";
 
 const checkedAt = "2026-04-23T10:00:00.000Z";
@@ -928,6 +932,97 @@ describe("provider update launch notification logic", () => {
       expect(parseWslDistroFromInstanceId("wsl:")).toBeNull();
       expect(parseWslDistroFromInstanceId("ssh:host")).toBeNull();
       expect(parseWslDistroFromInstanceId(undefined)).toBeNull();
+    });
+  });
+
+  describe("resolveEnvironmentUpdateRowStatus", () => {
+    const group: LocalEnvironmentUpdateGroup = {
+      environmentId: "env-wsl" as EnvironmentId,
+      label: "WSL",
+      isPrimary: false,
+      isSettling: false,
+      candidates: [updateCandidate({ driver: driver("codex"), latestVersion: "1.1.0" })],
+      providers: [],
+    };
+    const runningResult: ProviderUpdateToastView = {
+      phase: "running",
+      type: "loading",
+      title: "Updating providers",
+      description: "Running provider update command.",
+    };
+    const succeededResult: ProviderUpdateToastView = {
+      phase: "succeeded",
+      type: "success",
+      title: "Provider updated",
+      description: "New sessions will use the updated provider.",
+    };
+    const successPill: ProviderUpdateSidebarPillView = {
+      key: "succeeded:codex",
+      tone: "success",
+      title: "Codex updated",
+      description: "New sessions will use the updated provider.",
+    };
+
+    it("prefers a transport error", () => {
+      expect(
+        resolveEnvironmentUpdateRowStatus({
+          group,
+          error: "boom",
+          result: succeededResult,
+          pill: successPill,
+          isPending: true,
+        }),
+      ).toMatchObject({ kind: "failed", text: "boom" });
+    });
+
+    it("uses a terminal result snapshot", () => {
+      expect(
+        resolveEnvironmentUpdateRowStatus({
+          group,
+          error: undefined,
+          result: succeededResult,
+          pill: null,
+          isPending: false,
+        }),
+      ).toMatchObject({ kind: "success" });
+    });
+
+    it("falls through a non-terminal result to live server state", () => {
+      // The dispatch snapshot is still "running", but server state already
+      // reports success — the row must not stay pinned on "Updating…".
+      expect(
+        resolveEnvironmentUpdateRowStatus({
+          group,
+          error: undefined,
+          result: runningResult,
+          pill: successPill,
+          isPending: true,
+        }),
+      ).toMatchObject({ kind: "success" });
+    });
+
+    it("shows the pending spinner before any signal arrives", () => {
+      expect(
+        resolveEnvironmentUpdateRowStatus({
+          group,
+          error: undefined,
+          result: runningResult,
+          pill: null,
+          isPending: true,
+        }),
+      ).toMatchObject({ kind: "loading" });
+    });
+
+    it("lists the providers when idle", () => {
+      expect(
+        resolveEnvironmentUpdateRowStatus({
+          group,
+          error: undefined,
+          result: undefined,
+          pill: null,
+          isPending: false,
+        }),
+      ).toMatchObject({ kind: "idle", text: "Codex" });
     });
   });
 });

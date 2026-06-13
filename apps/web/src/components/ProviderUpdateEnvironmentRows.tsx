@@ -1,6 +1,6 @@
 import { CheckIcon } from "lucide-react";
 import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
-import { PROVIDER_DISPLAY_NAMES, type EnvironmentId } from "@t3tools/contracts";
+import type { EnvironmentId } from "@t3tools/contracts";
 
 import { cn } from "~/lib/utils";
 import { updateProvidersInEnvironment } from "../environmentApi";
@@ -10,8 +10,10 @@ import {
   firstRejectedProviderUpdateMessage,
   getProviderUpdateProgressToastView,
   getProviderUpdateSidebarPillView,
+  resolveEnvironmentUpdateRowStatus,
   type LocalEnvironmentUpdateGroup,
-  type ProviderUpdateSidebarPillView,
+  type ProviderUpdateRowStatus,
+  type ProviderUpdateRowStatusKind,
   type ProviderUpdateToastView,
 } from "./ProviderUpdateLaunchNotification.logic";
 import { Button } from "./ui/button";
@@ -22,67 +24,7 @@ import { Spinner } from "./ui/spinner";
 // the row reverts to its Update button instead of spinning forever.
 const PENDING_EXPIRY_MS = 20_000;
 
-type RowStatusKind = "idle" | "loading" | "success" | "failed" | "unchanged";
-
-interface RowStatus {
-  readonly kind: RowStatusKind;
-  readonly text: string;
-}
-
-function providerNamesFor(group: LocalEnvironmentUpdateGroup): string {
-  return group.candidates
-    .map((candidate) => PROVIDER_DISPLAY_NAMES[candidate.driver] ?? candidate.driver)
-    .join(", ");
-}
-
-/**
- * Resolve a row's display from every available signal, in priority order:
- * a transport rejection, then the dispatch's own result payload (reliable even
- * when a secondary backend's config does not re-sync), then live server state
- * (reliable even when the dispatch RPC is lost to a reconnect), then the
- * optimistic pending spinner, then the idle "ready to update" state.
- */
-function resolveRowStatus(input: {
-  readonly group: LocalEnvironmentUpdateGroup;
-  readonly error: string | undefined;
-  readonly result: ProviderUpdateToastView | undefined;
-  readonly pill: ProviderUpdateSidebarPillView | null;
-  readonly isPending: boolean;
-}): RowStatus {
-  if (input.error) {
-    return { kind: "failed", text: input.error };
-  }
-  if (input.result) {
-    switch (input.result.phase) {
-      case "succeeded":
-        return { kind: "success", text: "Updated" };
-      case "failed":
-        return { kind: "failed", text: input.result.description };
-      case "unchanged":
-        return { kind: "unchanged", text: input.result.description };
-      default:
-        return { kind: "loading", text: "Updating…" };
-    }
-  }
-  if (input.pill) {
-    switch (input.pill.tone) {
-      case "success":
-        return { kind: "success", text: "Updated" };
-      case "error":
-        return { kind: "failed", text: input.pill.description };
-      case "warning":
-        return { kind: "unchanged", text: input.pill.description };
-      default:
-        return { kind: "loading", text: "Updating…" };
-    }
-  }
-  if (input.isPending) {
-    return { kind: "loading", text: "Updating…" };
-  }
-  return { kind: "idle", text: providerNamesFor(input.group) };
-}
-
-function rowToneClass(kind: RowStatusKind): string {
+function rowToneClass(kind: ProviderUpdateRowStatusKind): string {
   switch (kind) {
     case "failed":
       return "text-destructive";
@@ -101,7 +43,7 @@ function EnvironmentUpdateRow({
   onUpdate,
 }: {
   readonly group: LocalEnvironmentUpdateGroup;
-  readonly status: RowStatus;
+  readonly status: ProviderUpdateRowStatus;
   readonly onUpdate: () => void;
 }) {
   let trailing: ReactNode;
@@ -145,7 +87,12 @@ function EnvironmentUpdateRow({
  * (Windows + WSL), each with its own "update all" trigger that targets only
  * that environment's backend.
  */
-export function ProviderUpdateEnvironmentRows() {
+export function ProviderUpdateEnvironmentRows({
+  onInteract,
+}: {
+  /** Called the first time the user triggers an update, so the host can stop refreshing the prompt. */
+  readonly onInteract?: () => void;
+}) {
   const { groups } = useLocalEnvironmentUpdateGroups();
   const groupByEnvironment = useMemo(
     () => new Map(groups.map((group) => [group.environmentId, group] as const)),
@@ -182,6 +129,7 @@ export function ProviderUpdateEnvironmentRows() {
       if (!group || group.candidates.length === 0) {
         return;
       }
+      onInteract?.();
       const providerCount = group.candidates.length;
       const targets = group.candidates.map((candidate) => ({
         driver: candidate.driver,
@@ -244,13 +192,13 @@ export function ProviderUpdateEnvironmentRows() {
         clearPending(environmentId);
       }
     },
-    [clearPending, groupByEnvironment],
+    [clearPending, groupByEnvironment, onInteract],
   );
 
   const rows = groups
     .map((group) => ({
       group,
-      status: resolveRowStatus({
+      status: resolveEnvironmentUpdateRowStatus({
         group,
         error: errorByEnvironment.get(group.environmentId),
         result: resultByEnvironment.get(group.environmentId),

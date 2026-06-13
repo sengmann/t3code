@@ -48,15 +48,22 @@ function ProviderUpdateEnvironmentsNotification() {
   const { dismissedNotificationKeys, dismissNotificationKey } =
     useDismissedProviderUpdateNotificationKeys();
 
-  const activeToastRef = useRef<ProviderUpdateToastId | null>(null);
+  const activeToastRef = useRef<{
+    readonly toastId: ProviderUpdateToastId;
+    readonly key: string;
+  } | null>(null);
   const notificationKeyRef = useRef<string | null>(null);
+  // Whether the user has triggered an update from the current toast. Until they
+  // do, the prompt is replaced when the available updates change; afterward it
+  // is kept so in-progress rows are not torn down.
+  const hasInteractedRef = useRef(false);
 
   // Close our prompt if this flow unmounts (e.g. the WSL backend is disabled
   // and we fall back to the single-prompt flow).
   useEffect(() => {
     return () => {
       if (activeToastRef.current !== null) {
-        toastManager.close(activeToastRef.current);
+        toastManager.close(activeToastRef.current.toastId);
         activeToastRef.current = null;
       }
     };
@@ -88,15 +95,24 @@ function ProviderUpdateEnvironmentsNotification() {
   const isGated = isAnySettling && !settleGraceElapsed;
 
   const openProviderSettings = useCallback(() => {
-    const toastId = activeToastRef.current;
-    if (toastId !== null) {
-      toastManager.close(toastId);
+    const active = activeToastRef.current;
+    if (active !== null) {
+      toastManager.close(active.toastId);
       activeToastRef.current = null;
     }
     void navigate({ to: "/settings/providers" });
   }, [navigate]);
 
   useEffect(() => {
+    // Replace a prompt the user hasn't acted on yet when the available updates
+    // change, so a fresh prompt reflects the current versions/environments.
+    // Once an update is in progress, keep the toast so its rows survive.
+    const active = activeToastRef.current;
+    if (active && active.key !== notificationKey && !hasInteractedRef.current) {
+      toastManager.close(active.toastId);
+      activeToastRef.current = null;
+    }
+
     if (
       !notificationKey ||
       isGated ||
@@ -108,6 +124,7 @@ function ProviderUpdateEnvironmentsNotification() {
     }
 
     seenProviderUpdateNotificationKeys.add(notificationKey);
+    hasInteractedRef.current = false;
 
     const dismissPrompt = () => {
       // Dismiss whatever set is still on offer at close time, so the popover
@@ -126,7 +143,13 @@ function ProviderUpdateEnvironmentsNotification() {
           updateProviders: candidateUnion,
           oneClickProviders: candidateUnion,
         }).title,
-        description: <ProviderUpdateEnvironmentRows />,
+        description: (
+          <ProviderUpdateEnvironmentRows
+            onInteract={() => {
+              hasInteractedRef.current = true;
+            }}
+          />
+        ),
         timeout: 0,
         actionProps: {
           children: "Settings",
@@ -140,7 +163,7 @@ function ProviderUpdateEnvironmentsNotification() {
         },
       }),
     );
-    activeToastRef.current = toastId;
+    activeToastRef.current = { toastId, key: notificationKey };
   }, [
     notificationKey,
     isGated,
