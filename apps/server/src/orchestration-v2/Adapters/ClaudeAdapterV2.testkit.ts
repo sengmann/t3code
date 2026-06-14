@@ -17,7 +17,6 @@ import {
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Random from "effect/Random";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 
@@ -39,6 +38,7 @@ import {
 import { layer as idAllocatorLayer } from "../IdAllocator.ts";
 import { ProviderAdapterDriverCreateError } from "../ProviderAdapterDriver.ts";
 import { makeDriverLayer as makeProviderAdapterRegistryDriverLayer } from "../ProviderAdapterRegistry.ts";
+import { randomUuidV4 } from "../RandomUuid.ts";
 import type { OrchestratorV2ProviderReplayHarness } from "../testkit/ProviderReplayHarness.ts";
 
 export const CLAUDE_AGENT_SDK_REPLAY_PROTOCOL = "claude-agent-sdk.query" as const;
@@ -59,7 +59,7 @@ export class ClaudeReplayTranscriptDecodeError extends Schema.TaggedErrorClass<C
     provider: Schema.optional(Schema.String),
     protocol: Schema.optional(Schema.String),
     scenario: Schema.optional(Schema.String),
-    cause: Schema.Defect,
+    cause: Schema.Defect(),
   },
 ) {
   override get message(): string {
@@ -140,7 +140,7 @@ export class ClaudeReplayDriverError extends Schema.TaggedErrorClass<ClaudeRepla
   "ClaudeReplayDriverError",
   {
     scenario: Schema.String,
-    cause: Schema.Defect,
+    cause: Schema.Defect(),
   },
 ) {
   override get message(): string {
@@ -2166,7 +2166,7 @@ export async function recordClaudeAgentSdkReplayTranscript(input: {
   }
 
   const entries: Array<ProviderReplayEntry> = [];
-  const sessionId = input.sessionId ?? (await Effect.runPromise(Random.nextUUIDv4));
+  const sessionId = input.sessionId ?? (await Effect.runPromise(randomUuidV4));
   const queryMode = input.queryMode ?? "streaming";
   const recordingMetadata: Record<string, unknown> = {};
   if (queryMode === "streaming") {

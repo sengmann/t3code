@@ -93,6 +93,12 @@ vi.mock("@t3tools/client-runtime", async (importOriginal) => {
       subscribeShell: vi.fn(() => () => undefined),
       subscribeThread: mockSubscribeThread,
     },
+    orchestrationV2: {
+      dispatchCommand: vi.fn(),
+      getThreadProjection: vi.fn(),
+      subscribeShell: vi.fn(() => () => undefined),
+      subscribeThread: vi.fn(() => () => undefined),
+    },
     terminal: {
       open: vi.fn(),
       attach: vi.fn(() => () => undefined),

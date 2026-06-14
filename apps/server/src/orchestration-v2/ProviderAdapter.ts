@@ -4,6 +4,7 @@ import {
   MessageId,
   ModelSelection,
   NodeId,
+  OrchestrationV2AppThread,
   OrchestrationV2ConversationMessage,
   OrchestrationV2ExecutionNode,
   OrchestrationV2ProviderSession,
@@ -64,6 +65,11 @@ export type ProviderAdapterV2SessionStatus = typeof ProviderAdapterV2SessionStat
 
 export const ProviderAdapterV2Event = Schema.Union([
   Schema.Struct({
+    type: Schema.Literal("app_thread.created"),
+    provider: ProviderKind,
+    appThread: OrchestrationV2AppThread,
+  }),
+  Schema.Struct({
     type: Schema.Literal("provider_session.updated"),
     provider: ProviderKind,
     providerSession: OrchestrationV2ProviderSession,
@@ -76,6 +82,7 @@ export const ProviderAdapterV2Event = Schema.Union([
   Schema.Struct({
     type: Schema.Literal("provider_turn.updated"),
     provider: ProviderKind,
+    threadId: Schema.optional(ThreadId),
     providerTurn: OrchestrationV2ProviderTurn,
   }),
   Schema.Struct({
@@ -101,6 +108,7 @@ export const ProviderAdapterV2Event = Schema.Union([
   Schema.Struct({
     type: Schema.Literal("runtime_request.updated"),
     provider: ProviderKind,
+    threadId: Schema.optional(ThreadId),
     runtimeRequest: OrchestrationV2RuntimeRequest,
   }),
   Schema.Struct({
@@ -121,7 +129,7 @@ export class ProviderAdapterCapabilitiesError extends Schema.TaggedErrorClass<Pr
   "ProviderAdapterCapabilitiesError",
   {
     provider: ProviderKind,
-    cause: Schema.optional(Schema.Defect),
+    cause: Schema.optional(Schema.Defect()),
   },
 ) {
   override get message(): string {
@@ -134,7 +142,7 @@ export class ProviderAdapterOpenSessionError extends Schema.TaggedErrorClass<Pro
   {
     provider: ProviderKind,
     providerSessionId: ProviderSessionId,
-    cause: Schema.optional(Schema.Defect),
+    cause: Schema.optional(Schema.Defect()),
   },
 ) {
   override get message(): string {
@@ -147,7 +155,7 @@ export class ProviderAdapterCloseSessionError extends Schema.TaggedErrorClass<Pr
   {
     provider: ProviderKind,
     providerSessionId: ProviderSessionId,
-    cause: Schema.optional(Schema.Defect),
+    cause: Schema.optional(Schema.Defect()),
   },
 ) {
   override get message(): string {
@@ -161,7 +169,7 @@ export class ProviderAdapterResumeThreadError extends Schema.TaggedErrorClass<Pr
     provider: ProviderKind,
     providerSessionId: ProviderSessionId,
     providerThreadId: ProviderThreadId,
-    cause: Schema.optional(Schema.Defect),
+    cause: Schema.optional(Schema.Defect()),
   },
 ) {
   override get message(): string {
@@ -174,7 +182,7 @@ export class ProviderAdapterEnsureThreadError extends Schema.TaggedErrorClass<Pr
   {
     provider: ProviderKind,
     threadId: ThreadId,
-    cause: Schema.optional(Schema.Defect),
+    cause: Schema.optional(Schema.Defect()),
   },
 ) {
   override get message(): string {
@@ -187,7 +195,7 @@ export class ProviderAdapterReadThreadSnapshotError extends Schema.TaggedErrorCl
   {
     provider: ProviderKind,
     providerThreadId: ProviderThreadId,
-    cause: Schema.optional(Schema.Defect),
+    cause: Schema.optional(Schema.Defect()),
   },
 ) {
   override get message(): string {
@@ -201,7 +209,7 @@ export class ProviderAdapterRollbackThreadError extends Schema.TaggedErrorClass<
     provider: ProviderKind,
     providerThreadId: ProviderThreadId,
     checkpointId: Schema.optional(CheckpointId),
-    cause: Schema.optional(Schema.Defect),
+    cause: Schema.optional(Schema.Defect()),
   },
 ) {
   override get message(): string {
@@ -214,7 +222,7 @@ export class ProviderAdapterForkThreadError extends Schema.TaggedErrorClass<Prov
   {
     provider: ProviderKind,
     providerThreadId: ProviderThreadId,
-    cause: Schema.optional(Schema.Defect),
+    cause: Schema.optional(Schema.Defect()),
   },
 ) {
   override get message(): string {
@@ -229,7 +237,7 @@ export class ProviderAdapterTurnStartError extends Schema.TaggedErrorClass<Provi
     threadId: ThreadId,
     providerThreadId: ProviderThreadId,
     runId: RunId,
-    cause: Schema.optional(Schema.Defect),
+    cause: Schema.optional(Schema.Defect()),
   },
 ) {
   override get message(): string {
@@ -255,7 +263,7 @@ export class ProviderAdapterSteerRunError extends Schema.TaggedErrorClass<Provid
     provider: ProviderKind,
     providerThreadId: ProviderThreadId,
     providerTurnId: ProviderTurnId,
-    cause: Schema.optional(Schema.Defect),
+    cause: Schema.optional(Schema.Defect()),
   },
 ) {
   override get message(): string {
@@ -269,7 +277,7 @@ export class ProviderAdapterInterruptError extends Schema.TaggedErrorClass<Provi
     provider: ProviderKind,
     providerThreadId: ProviderThreadId,
     providerTurnId: ProviderTurnId,
-    cause: Schema.optional(Schema.Defect),
+    cause: Schema.optional(Schema.Defect()),
   },
 ) {
   override get message(): string {
@@ -282,7 +290,7 @@ export class ProviderAdapterRuntimeRequestResponseError extends Schema.TaggedErr
   {
     provider: ProviderKind,
     requestId: RuntimeRequestId,
-    cause: Schema.optional(Schema.Defect),
+    cause: Schema.optional(Schema.Defect()),
   },
 ) {
   override get message(): string {
@@ -295,7 +303,7 @@ export class ProviderAdapterEventStreamError extends Schema.TaggedErrorClass<Pro
   {
     provider: ProviderKind,
     providerSessionId: ProviderSessionId,
-    cause: Schema.optional(Schema.Defect),
+    cause: Schema.optional(Schema.Defect()),
   },
 ) {
   override get message(): string {
@@ -352,9 +360,11 @@ export interface ProviderAdapterV2EnsureThreadInput {
 }
 
 export interface ProviderAdapterV2TurnInput {
+  readonly appThread: OrchestrationV2AppThread;
   readonly threadId: ThreadId;
   readonly runId: RunId;
   readonly runOrdinal: number;
+  readonly providerTurnOrdinal: number;
   readonly attemptId: RunAttemptId;
   readonly rootNodeId: NodeId;
   readonly providerThread: OrchestrationV2ProviderThread;
@@ -471,5 +481,5 @@ export interface ProviderAdapterV2Shape {
 }
 
 export class ProviderAdapterV2 extends Context.Service<ProviderAdapterV2, ProviderAdapterV2Shape>()(
-  "t3/orchestration-v2/ProviderAdapter",
+  "t3/orchestration-v2/ProviderAdapter/ProviderAdapterV2",
 ) {}

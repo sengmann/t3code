@@ -463,10 +463,13 @@ it.effect(
           runtimePolicy,
         });
         yield* runtime.events.pipe(Stream.runDrain, Effect.forkScoped);
+        const appThread = (yield* projectionStore.getThreadProjection(threadId)).thread;
         yield* runtime.startTurn({
+          appThread,
           threadId,
           runId,
           runOrdinal: 1,
+          providerTurnOrdinal: 1,
           attemptId,
           rootNodeId,
           providerThread,
@@ -686,6 +689,7 @@ it.effect(
         const eventSink = yield* EventSinkV2;
         const idAllocator = yield* IdAllocatorV2;
         const manager = yield* ProviderSessionManagerV2;
+        const projectionStore = yield* ProjectionStoreV2;
         const now = yield* DateTime.now;
         const projectId = yield* idAllocator.allocate.project({
           fixtureName: "provider-session-manager-multi-thread-active",
@@ -744,10 +748,14 @@ it.effect(
           runtimePolicy,
         });
         yield* runtime.events.pipe(Stream.runDrain, Effect.forkScoped);
+        const firstAppThread = (yield* projectionStore.getThreadProjection(firstThreadId)).thread;
+        const secondAppThread = (yield* projectionStore.getThreadProjection(secondThreadId)).thread;
         yield* runtime.startTurn({
+          appThread: firstAppThread,
           threadId: firstThreadId,
           runId: firstRunId,
           runOrdinal: 1,
+          providerTurnOrdinal: 1,
           attemptId: idAllocator.derive.runAttempt({ runId: firstRunId, attemptOrdinal: 1 }),
           rootNodeId: idAllocator.derive.rootNode({ runId: firstRunId }),
           providerThread: firstProviderThread,
@@ -760,9 +768,11 @@ it.effect(
           runtimePolicy,
         });
         yield* runtime.startTurn({
+          appThread: secondAppThread,
           threadId: secondThreadId,
           runId: secondRunId,
           runOrdinal: 1,
+          providerTurnOrdinal: 1,
           attemptId: idAllocator.derive.runAttempt({ runId: secondRunId, attemptOrdinal: 1 }),
           rootNodeId: idAllocator.derive.rootNode({ runId: secondRunId }),
           providerThread: secondProviderThread,
