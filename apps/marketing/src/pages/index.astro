@@ -315,8 +315,20 @@ const mobileEndorsementRows = [
 
         <div class="tile open-pitch">
           <div class="open-pitch-copy">
-            <h3>Own the whole thing.</h3>
-            <p>Change the UI, add an agent, or ship your own build.</p>
+            <ul class="open-pitch-list">
+              <li>
+                <span class="open-pitch-mark" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+                <span><strong>Change the UI.</strong> Restyle every surface to match your taste.</span>
+              </li>
+              <li>
+                <span class="open-pitch-mark" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+                <span><strong>Add an agent.</strong> Wire in your own tools, models, and flows.</span>
+              </li>
+              <li>
+                <span class="open-pitch-mark" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+                <span><strong>Ship your own build.</strong> Self-host it or distribute it as your own.</span>
+              </li>
+            </ul>
           </div>
 
           <div class="open-pitch-footer">
@@ -1072,30 +1084,48 @@ const mobileEndorsementRows = [
   }
 
   .open-pitch {
-    padding: 28px;
+    padding: 32px;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
-    gap: 40px;
+    justify-content: center;
+    gap: 32px;
     background:
-      radial-gradient(circle at 100% 0%, var(--accent-dim), transparent 52%),
+      radial-gradient(110% 75% at 100% 0%, var(--accent-dim), transparent 60%),
       linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent);
   }
 
-  .open-pitch h3 {
-    max-width: 9ch;
-    font-size: clamp(30px, 3vw, 42px);
-    font-weight: 500;
-    letter-spacing: -0.035em;
-    line-height: 1.04;
+  .open-pitch-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
   }
 
-  .open-pitch-copy p {
-    max-width: 30ch;
-    margin-top: 14px;
-    color: var(--fg-muted);
-    font-size: 16px;
+  .open-pitch-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    font-size: 15px;
     line-height: 1.5;
+    color: var(--fg-muted);
+  }
+
+  .open-pitch-list strong {
+    color: var(--fg);
+    font-weight: 600;
+  }
+
+  .open-pitch-mark {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    margin-top: 1px;
+    border-radius: 7px;
+    color: var(--accent);
+    background: var(--accent-dim);
+    border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
   }
 
   .open-pitch-footer {
