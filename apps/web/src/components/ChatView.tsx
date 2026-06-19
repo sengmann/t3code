@@ -144,6 +144,7 @@ import {
   buildNewDraftExecutionDefaults,
   resolveNewDraftStartFromOrigin,
 } from "../lib/chatThreadActions";
+import { loadClientSettingsForNewThread } from "../lib/clientSettingsHydration";
 import {
   deriveLogicalProjectKeyFromSettings,
   selectProjectGroupingSettings,
@@ -1529,12 +1530,17 @@ function ChatViewContent(props: ChatViewProps) {
         return activeDraftSession.threadId;
       }
 
+      const clientSettings = await loadClientSettingsForNewThread();
+      if (!clientSettings) {
+        return null;
+      }
+
       const nextDraftId = newDraftId();
       const nextThreadId = newThreadId();
       setLogicalProjectDraftThreadId(logicalProjectKey, activeProjectRef, nextDraftId, {
         threadId: nextThreadId,
         createdAt: new Date().toISOString(),
-        ...buildNewDraftExecutionDefaults(settings.defaultRuntimeMode),
+        ...buildNewDraftExecutionDefaults(clientSettings.defaultRuntimeMode),
         ...input,
       });
       await navigate({
@@ -1554,7 +1560,6 @@ function ChatViewContent(props: ChatViewProps) {
       routeKind,
       setDraftThreadContext,
       setLogicalProjectDraftThreadId,
-      settings.defaultRuntimeMode,
     ],
   );
 

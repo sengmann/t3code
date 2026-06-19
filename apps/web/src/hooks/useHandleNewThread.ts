@@ -24,6 +24,7 @@ import {
   buildNewDraftExecutionDefaults,
   resolveNewDraftStartFromOrigin,
 } from "../lib/chatThreadActions";
+import { loadClientSettingsForNewThread } from "../lib/clientSettingsHydration";
 import { resolveThreadRouteTarget } from "../threadRoutes";
 import { legacyProjectCwdPreferenceKey, useUiStateStore } from "../uiStateStore";
 import { useSettings } from "./useSettings";
@@ -34,7 +35,6 @@ export function useNewThreadHandler() {
   const newWorktreesStartFromOrigin = useSettings(
     (settings) => settings.newWorktreesStartFromOrigin,
   );
-  const defaultRuntimeMode = useSettings((settings) => settings.defaultRuntimeMode);
   const router = useRouter();
   const getCurrentRouteTarget = useCallback(() => {
     const currentRouteParams = router.state.matches[router.state.matches.length - 1]?.params ?? {};
@@ -156,11 +156,16 @@ export function useNewThreadHandler() {
         return Promise.resolve();
       }
 
-      const draftId = newDraftId();
-      const threadId = newThreadId();
-      const createdAt = new Date().toISOString();
-      const initialEnvMode = options?.envMode ?? "local";
       return (async () => {
+        const clientSettings = await loadClientSettingsForNewThread();
+        if (!clientSettings) {
+          return;
+        }
+
+        const draftId = newDraftId();
+        const threadId = newThreadId();
+        const createdAt = new Date().toISOString();
+        const initialEnvMode = options?.envMode ?? "local";
         setLogicalProjectDraftThreadId(logicalProjectKey, projectRef, draftId, {
           threadId,
           createdAt,
@@ -173,7 +178,7 @@ export function useNewThreadHandler() {
               envMode: initialEnvMode,
               newWorktreesStartFromOrigin,
             }),
-          ...buildNewDraftExecutionDefaults(defaultRuntimeMode),
+          ...buildNewDraftExecutionDefaults(clientSettings.defaultRuntimeMode),
         });
         applyStickyState(draftId);
 
@@ -183,14 +188,7 @@ export function useNewThreadHandler() {
         });
       })();
     },
-    [
-      defaultRuntimeMode,
-      newWorktreesStartFromOrigin,
-      getCurrentRouteTarget,
-      projectGroupingSettings,
-      router,
-      projects,
-    ],
+    [newWorktreesStartFromOrigin, getCurrentRouteTarget, projectGroupingSettings, router, projects],
   );
 }
 

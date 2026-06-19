@@ -64,7 +64,7 @@ function setClientSettingsHydrated(nextHydrated: boolean): void {
 
 function subscribeClientSettings(listener: () => void): () => void {
   clientSettingsListeners.add(listener);
-  void hydrateClientSettings();
+  void hydrateClientSettings().catch(() => undefined);
   return () => {
     clientSettingsListeners.delete(listener);
   };
@@ -76,7 +76,7 @@ function getClientSettingsHydratedSnapshot(): boolean {
 
 function subscribeClientSettingsHydration(listener: () => void): () => void {
   clientSettingsHydrationListeners.add(listener);
-  void hydrateClientSettings();
+  void hydrateClientSettings().catch(() => undefined);
   return () => {
     clientSettingsHydrationListeners.delete(listener);
   };
@@ -100,12 +100,10 @@ async function hydrateClientSettings(): Promise<void> {
       if (persistedSettings) {
         replaceClientSettingsSnapshot({ ...DEFAULT_CLIENT_SETTINGS, ...persistedSettings });
       }
+      setClientSettingsHydrated(true);
     } catch (error) {
       console.error(`${CLIENT_SETTINGS_PERSISTENCE_ERROR_SCOPE} hydrate failed`, error);
-    } finally {
-      if (hydrationGeneration === clientSettingsHydrationGeneration) {
-        setClientSettingsHydrated(true);
-      }
+      throw error;
     }
   })();
 
@@ -164,6 +162,18 @@ function splitPatch(patch: Partial<UnifiedSettings>): {
  * settings without subscribing.
  */
 export function getClientSettings(): ClientSettings {
+  return getClientSettingsSnapshot();
+}
+
+/**
+ * Waits for persisted client settings before returning the current snapshot.
+ *
+ * User actions whose behavior depends on a persisted setting must use this
+ * accessor instead of the eager default snapshot. Hydration failures reject
+ * so callers can stop the action instead of silently falling back.
+ */
+export async function getHydratedClientSettings(): Promise<ClientSettings> {
+  await hydrateClientSettings();
   return getClientSettingsSnapshot();
 }
 
