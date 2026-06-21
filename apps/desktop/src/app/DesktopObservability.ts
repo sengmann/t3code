@@ -314,7 +314,7 @@ const PRIMARY_BACKEND_LOG_INSTANCE_ID = PRIMARY_LOCAL_ENVIRONMENT_ID;
 const sanitizeInstanceIdForFileName = (id: string): string => id.replace(/[^a-zA-Z0-9._-]+/g, "_");
 
 const backendLogFilePathForInstance = (
-  environment: DesktopEnvironment.DesktopEnvironmentShape,
+  environment: DesktopEnvironment.DesktopEnvironment["Service"],
   id: string,
 ): string => {
   // Primary keeps the historical "server-child.log" path so ops scripts
@@ -332,7 +332,7 @@ const backendLogFilePathForInstance = (
 // per-call shape lets the shape annotate writes with the *caller's*
 // id rather than whatever id created the cached writer first.
 const makeBackendOutputSinkForInstance = (
-  environment: DesktopEnvironment.DesktopEnvironmentShape,
+  environment: DesktopEnvironment.DesktopEnvironment["Service"],
   id: string,
 ): Effect.Effect<
   Option.Option<RotatingLogFileWriter>,
@@ -344,7 +344,7 @@ const makeBackendOutputSinkForInstance = (
   }).pipe(Effect.option);
 
 const makeBackendOutputLogShape = (
-  environment: DesktopEnvironment.DesktopEnvironmentShape,
+  environment: DesktopEnvironment.DesktopEnvironment["Service"],
   id: string,
   sink: Option.Option<RotatingLogFileWriter>,
 ): DesktopBackendOutputLogShape =>
