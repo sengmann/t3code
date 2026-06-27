@@ -32,7 +32,10 @@ import {
 import { resolveThreadSelectionNavigationAction } from "../../lib/adaptive-navigation";
 import { buildThreadRoutePath } from "../../lib/routes";
 import { scopedThreadKey } from "../../lib/scopedEntities";
-import { useHardwareKeyboardCommand } from "../keyboard/hardwareKeyboardCommands";
+import {
+  parseActiveThreadPath,
+  useHardwareKeyboardCommand,
+} from "../keyboard/hardwareKeyboardCommands";
 import { HomeListOptionsProvider } from "../home/home-list-options";
 import { ThreadNavigationSidebar } from "../threads/ThreadNavigationSidebar";
 
@@ -113,8 +116,10 @@ export function AdaptiveWorkspaceLayout(props: { readonly children: ReactNode })
         layout,
         viewportWidth: width,
         preferredWidth: fileInspectorPreferredWidth ?? undefined,
+        reservedLeadingWidth:
+          layout.usesSplitView && primarySidebarPreferredVisible ? (layout.listPaneWidth ?? 0) : 0,
       }),
-    [fileInspectorPreferredWidth, layout, width],
+    [fileInspectorPreferredWidth, layout, primarySidebarPreferredVisible, width],
   );
   const auxiliaryPaneRole: WorkspaceAuxiliaryPaneRole =
     focusedAuxiliaryPaneRole ?? (/\/files(?:\/|$)/.test(pathname) ? "inspector" : "supplementary");
@@ -190,6 +195,14 @@ export function AdaptiveWorkspaceLayout(props: { readonly children: ReactNode })
     }
     setSupplementaryPanePreferredVisible(true);
   }, []);
+  const handleOpenFilesCommand = useCallback(() => {
+    if (!layout.usesSplitView || !fileInspector.supported || !parseActiveThreadPath(pathname)) {
+      return false;
+    }
+    showAuxiliaryPane("inspector");
+    return true;
+  }, [fileInspector.supported, layout.usesSplitView, pathname, showAuxiliaryPane]);
+  useHardwareKeyboardCommand("files", handleOpenFilesCommand);
   const toggleAuxiliaryPane = useCallback(() => {
     if (auxiliaryPaneRole === "inspector") {
       setFileInspectorPreferredVisible((current) => !current);

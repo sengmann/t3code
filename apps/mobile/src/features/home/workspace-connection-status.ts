@@ -3,6 +3,7 @@ import type { WorkspaceState } from "../../state/workspaceModel";
 export function shouldShowWorkspaceConnectionStatus(state: WorkspaceState): boolean {
   return (
     state.networkStatus === "offline" ||
+    state.connectionError !== null ||
     state.hasConnectingEnvironment ||
     (state.hasLoadedShellSnapshot && !state.hasReadyEnvironment)
   );

@@ -12,6 +12,7 @@ import { requireNativeView } from "expo";
 import { NativeViewResolutionError } from "../../native/nativeViewResolutionError";
 
 const NATIVE_REVIEW_DIFF_MODULE_NAME = "T3ReviewDiffSurface";
+const NATIVE_REVIEW_DIFF_PAYLOAD_RETRY_FRAMES = 60;
 
 interface ExpoGlobalWithViewConfig {
   readonly expo?: {
@@ -195,7 +196,7 @@ function useNativeReviewDiffPayload(
       const view = nativeRef.current;
       const command = view?.[method];
       if (!view || !command) {
-        if (attempts < 4) {
+        if (attempts < NATIVE_REVIEW_DIFF_PAYLOAD_RETRY_FRAMES) {
           attempts += 1;
           frame = requestAnimationFrame(dispatch);
         }
@@ -203,7 +204,11 @@ function useNativeReviewDiffPayload(
       }
 
       void command.call(view, payload).catch((error: unknown) => {
-        if (!cancelled && attempts < 4 && isPendingNativeViewRegistration(error)) {
+        if (
+          !cancelled &&
+          attempts < NATIVE_REVIEW_DIFF_PAYLOAD_RETRY_FRAMES &&
+          isPendingNativeViewRegistration(error)
+        ) {
           attempts += 1;
           frame = requestAnimationFrame(dispatch);
           return;

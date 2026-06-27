@@ -164,7 +164,7 @@ describe("deriveWorkspacePaneLayout", () => {
       contentPaneWidth: 1_024,
       supportsAuxiliaryPane: true,
       auxiliaryPaneVisible: true,
-      auxiliaryPaneWidth: 287,
+      auxiliaryPaneWidth: 260,
     });
   });
 
@@ -185,7 +185,25 @@ describe("deriveWorkspacePaneLayout", () => {
       contentPaneWidth: 986,
       supportsAuxiliaryPane: true,
       auxiliaryPaneVisible: true,
-      auxiliaryPaneWidth: 320,
+      auxiliaryPaneWidth: 276,
+    });
+  });
+
+  it("keeps an explicitly hidden thread sidebar hidden when the file inspector is visible", () => {
+    const layout = deriveLayout({ width: 1_024, height: 1_366 });
+
+    expect(
+      deriveWorkspacePaneLayout({
+        layout,
+        viewportWidth: 1_024,
+        primarySidebarPreferredVisible: false,
+        auxiliaryPanePreferredVisible: true,
+        auxiliaryPaneRole: "inspector",
+      }),
+    ).toMatchObject({
+      primarySidebarVisible: false,
+      primarySidebarSuppressedByAuxiliary: false,
+      auxiliaryPaneVisible: true,
     });
   });
 

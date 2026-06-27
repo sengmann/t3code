@@ -100,9 +100,11 @@ export function deriveWorkspacePaneLayout(input: {
       layout: input.layout,
       viewportWidth,
       preferredWidth: input.auxiliaryPanePreferredWidth,
+      reservedLeadingWidth: preferredPrimarySidebarWidth,
     });
     const auxiliaryPaneVisible = fileInspector.supported && input.auxiliaryPanePreferredVisible;
     const primarySidebarSuppressedByAuxiliary =
+      preferredPrimarySidebarVisible &&
       auxiliaryPaneVisible &&
       fileInspector.width !== null &&
       input.layout.listPaneWidth !== null &&
@@ -151,8 +153,13 @@ export function deriveFileInspectorPaneLayout(input: {
   readonly layout: Layout;
   readonly viewportWidth: number;
   readonly preferredWidth?: number;
+  readonly reservedLeadingWidth?: number;
 }): FileInspectorPaneLayout {
   const viewportWidth = Math.max(0, input.viewportWidth);
+  const reservedLeadingWidth = Number.isFinite(input.reservedLeadingWidth)
+    ? Math.max(0, input.reservedLeadingWidth ?? 0)
+    : 0;
+  const availableContentWidth = Math.max(0, viewportWidth - reservedLeadingWidth);
   const supported =
     input.layout.usesSplitView && viewportWidth >= FILE_INSPECTOR_MIN_VIEWPORT_WIDTH;
 
@@ -163,11 +170,11 @@ export function deriveFileInspectorPaneLayout(input: {
           preferredWidth:
             input.preferredWidth ??
             clamp(
-              Math.round(viewportWidth * 0.28),
+              Math.round(availableContentWidth * 0.28),
               AUXILIARY_PANE_MIN_WIDTH,
               AUXILIARY_PANE_DEFAULT_MAX_WIDTH,
             ),
-          availableWidth: viewportWidth,
+          availableWidth: availableContentWidth,
         })
       : null,
   };
