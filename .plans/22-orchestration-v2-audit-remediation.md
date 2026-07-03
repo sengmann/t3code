@@ -17,7 +17,7 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done
 ## Tracking checklist
 
 - [x] 1. Honor `is_error` on Claude SDK results (runs marked completed on 401/529)
-- [ ] 2. Preserve real failure causes in projected errors (Claude adapter + ProviderFailure)
+- [x] 2. Preserve real failure causes in projected errors (Claude adapter + ProviderFailure)
 - [ ] 3. Preserve cursor failure detail (requestId, durationMs, SDK `error_code`)
 - [ ] 4. Log failure/lifecycle frames in native provider logs
 - [ ] 5. Surface provider-process crashes / reconcile cancellations to the user
@@ -124,7 +124,12 @@ sqlite3 -readonly ~/.t3/userdata-v2/state.sqlite \
    FROM orchestration_v2_projection_turn_items WHERE type='error';"
 ```
 
-- [ ] Status: not started
+- [x] Status: FIXED (commit 5669dc4644) — `makeProviderFailure` walks the cause chain (bounded,
+      deduped) and joins messages with " ← ", picks up the deepest `code`; run-execution failure
+      log prints `Cause.pretty`. Unit tests added. App-verified 2026-07-03: with a broken Claude
+      binary path, the user-visible error item reads "Claude Agent SDK query failed. ← Claude
+      Code native binary not found at ...". The open-vs-resume side note was fixed under
+      issue 15. Cursor-specific detail (requestId/durationMs/error_code) tracked in issue 3.
 
 ## 3. Cursor failure detail dropped (requestId, durationMs, SDK error_code)
 
