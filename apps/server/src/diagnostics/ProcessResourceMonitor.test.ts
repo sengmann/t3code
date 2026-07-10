@@ -17,7 +17,7 @@ describe("ProcessResourceMonitor", () => {
           {
             pid: 100,
             ppid: 1,
-            pgid: 100,
+            pgid: Option.some(100),
             status: "S",
             cpuPercent: 2,
             rssBytes: 1_000,
@@ -27,7 +27,7 @@ describe("ProcessResourceMonitor", () => {
           {
             pid: 101,
             ppid: 100,
-            pgid: 100,
+            pgid: Option.some(100),
             status: "S",
             cpuPercent: 10,
             rssBytes: 2_000,
@@ -37,7 +37,7 @@ describe("ProcessResourceMonitor", () => {
           {
             pid: 102,
             ppid: 101,
-            pgid: 100,
+            pgid: Option.some(100),
             status: "R",
             cpuPercent: 50,
             rssBytes: 3_000,
@@ -47,7 +47,7 @@ describe("ProcessResourceMonitor", () => {
           {
             pid: 200,
             ppid: 1,
-            pgid: 200,
+            pgid: Option.some(200),
             status: "R",
             cpuPercent: 99,
             rssBytes: 9_000,
@@ -77,7 +77,7 @@ describe("ProcessResourceMonitor", () => {
             {
               pid: 100,
               ppid: 1,
-              pgid: 100,
+              pgid: Option.some(100),
               status: "S",
               cpuPercent: 10,
               rssBytes: 1_000,
@@ -94,7 +94,7 @@ describe("ProcessResourceMonitor", () => {
             {
               pid: 100,
               ppid: 1,
-              pgid: 100,
+              pgid: Option.some(100),
               status: "S",
               cpuPercent: 30,
               rssBytes: 2_000,
@@ -137,7 +137,7 @@ describe("ProcessResourceMonitor", () => {
             {
               pid: 100,
               ppid: 1,
-              pgid: 100,
+              pgid: Option.some(100),
               status: "S",
               cpuPercent: 1,
               rssBytes: 1_000,
@@ -154,7 +154,7 @@ describe("ProcessResourceMonitor", () => {
             {
               pid: 100,
               ppid: 1,
-              pgid: 100,
+              pgid: Option.some(100),
               status: "S",
               cpuPercent: 2,
               rssBytes: 2_000,
@@ -192,7 +192,7 @@ describe("ProcessResourceMonitor", () => {
           {
             pid: 100,
             ppid: 1,
-            pgid: 100,
+            pgid: Option.some(100),
             status: "S",
             cpuPercent: 1,
             rssBytes: 1_000,
@@ -202,7 +202,7 @@ describe("ProcessResourceMonitor", () => {
           ...Array.from({ length: 35 }, (_, index) => ({
             pid: 200 + index,
             ppid: index === 0 ? 100 : 199 + index,
-            pgid: 100,
+            pgid: Option.some(100),
             status: "S",
             cpuPercent: 35 - index,
             rssBytes: 2_000 + index,

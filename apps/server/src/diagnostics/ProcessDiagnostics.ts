@@ -11,16 +11,19 @@ import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as ChildProcess from "effect/unstable/process/ChildProcess";
 import * as ChildProcessSpawner from "effect/unstable/process/ChildProcessSpawner";
+
+import { decodeJsonResult } from "@t3tools/shared/schemaJson";
 
 import { collectUint8StreamText } from "../stream/collectUint8StreamText.ts";
 
 export interface ProcessRow {
   readonly pid: number;
   readonly ppid: number;
-  readonly pgid: number | null;
+  readonly pgid: Option.Option<number>;
   readonly status: string;
   readonly cpuPercent: number;
   readonly rssBytes: number;
@@ -31,6 +34,20 @@ export interface ProcessRow {
 const PROCESS_QUERY_TIMEOUT_MS = 1_000;
 const POSIX_PROCESS_QUERY_COMMAND = "pid=,ppid=,pgid=,stat=,pcpu=,rss=,etime=,command=";
 const PROCESS_QUERY_MAX_OUTPUT_BYTES = 2 * 1024 * 1024;
+const NullableString = Schema.Union([Schema.String, Schema.Null]);
+const NullableNumber = Schema.Union([Schema.Number, Schema.Null]);
+const WindowsProcessRecord = Schema.Struct({
+  ProcessId: Schema.Number,
+  ParentProcessId: Schema.Number,
+  CommandLine: Schema.optional(NullableString),
+  Name: Schema.optional(NullableString),
+  Status: Schema.optional(NullableString),
+  WorkingSetSize: Schema.optional(NullableNumber),
+  PercentProcessorTime: Schema.optional(NullableNumber),
+});
+type WindowsProcessRecord = typeof WindowsProcessRecord.Type;
+const decodeWindowsProcessJson = decodeJsonResult(Schema.Unknown);
+const decodeWindowsProcessRecord = Schema.decodeUnknownOption(WindowsProcessRecord);
 
 export class ProcessDiagnostics extends Context.Service<
   ProcessDiagnostics,
@@ -136,6 +153,16 @@ function parseNumber(value: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function toNonEmptyStringOption(value: string | null | undefined): Option.Option<string> {
+  return typeof value === "string" && value.trim().length > 0
+    ? Option.some(value)
+    : Option.none();
+}
+
+function toNonNegativeNumber(value: number | null | undefined): number {
+  return typeof value === "number" && Number.isFinite(value) ? Math.max(0, value) : 0;
+}
+
 export function parsePosixProcessRows(output: string): ReadonlyArray<ProcessRow> {
   const rows: ProcessRow[] = [];
   const rowPattern =
@@ -189,7 +216,7 @@ export function parsePosixProcessRows(output: string): ReadonlyArray<ProcessRow>
     rows.push({
       pid,
       ppid,
-      pgid,
+      pgid: Option.some(pgid),
       status,
       cpuPercent,
       rssBytes: rssKiB * 1024,
@@ -201,51 +228,46 @@ export function parsePosixProcessRows(output: string): ReadonlyArray<ProcessRow>
   return rows;
 }
 
-function normalizeWindowsProcessRow(value: unknown): ProcessRow | null {
-  if (typeof value !== "object" || value === null) return null;
-  const record = value as Record<string, unknown>;
-  const pid = typeof record.ProcessId === "number" ? record.ProcessId : null;
-  const ppid = typeof record.ParentProcessId === "number" ? record.ParentProcessId : null;
-  const commandLine =
-    typeof record.CommandLine === "string" && record.CommandLine.trim().length > 0
-      ? record.CommandLine
-      : typeof record.Name === "string"
-        ? record.Name
-        : null;
-  const workingSet =
-    typeof record.WorkingSetSize === "number" && Number.isFinite(record.WorkingSetSize)
-      ? Math.max(0, Math.round(record.WorkingSetSize))
-      : 0;
-  const cpuPercent =
-    typeof record.PercentProcessorTime === "number" && Number.isFinite(record.PercentProcessorTime)
-      ? Math.max(0, record.PercentProcessorTime)
-      : 0;
+function normalizeWindowsProcessRow(record: WindowsProcessRecord): Option.Option<ProcessRow> {
+  const commandLine = Option.firstSomeOf([
+    toNonEmptyStringOption(record.CommandLine),
+    toNonEmptyStringOption(record.Name),
+  ]);
+  if (
+    !Number.isInteger(record.ProcessId) ||
+    record.ProcessId <= 0 ||
+    !Number.isInteger(record.ParentProcessId) ||
+    record.ParentProcessId < 0 ||
+    Option.isNone(commandLine)
+  ) {
+    return Option.none();
+  }
 
-  if (!pid || pid <= 0 || ppid === null || ppid < 0 || !commandLine) return null;
-  return {
-    pid,
-    ppid,
-    pgid: null,
-    status: typeof record.Status === "string" && record.Status.length > 0 ? record.Status : "Live",
-    cpuPercent,
-    rssBytes: workingSet,
+  return Option.some({
+    pid: record.ProcessId,
+    ppid: record.ParentProcessId,
+    pgid: Option.none(),
+    status: Option.getOrElse(toNonEmptyStringOption(record.Status), () => "Live"),
+    cpuPercent: toNonNegativeNumber(record.PercentProcessorTime),
+    rssBytes: Math.round(toNonNegativeNumber(record.WorkingSetSize)),
     elapsed: "",
-    command: commandLine,
-  };
+    command: commandLine.value,
+  });
 }
 
-function parseWindowsProcessRows(output: string): ReadonlyArray<ProcessRow> {
+export function parseWindowsProcessRows(output: string): ReadonlyArray<ProcessRow> {
   if (output.trim().length === 0) return [];
-  try {
-    const parsed = JSON.parse(output) as unknown;
-    const records = Array.isArray(parsed) ? parsed : [parsed];
-    return records.flatMap((record) => {
-      const row = normalizeWindowsProcessRow(record);
-      return row ? [row] : [];
-    });
-  } catch {
+  const parsed = decodeWindowsProcessJson(output);
+  if (Result.isFailure(parsed)) {
     return [];
   }
+  const records = Array.isArray(parsed.success) ? parsed.success : [parsed.success];
+  return records.flatMap((rawRecord) => {
+    const decodedRecord = decodeWindowsProcessRecord(rawRecord);
+    if (Option.isNone(decodedRecord)) return [];
+    const row = normalizeWindowsProcessRow(decodedRecord.value);
+    return Option.isSome(row) ? [row.value] : [];
+  });
 }
 
 export function buildDescendantEntries(
@@ -276,7 +298,7 @@ export function buildDescendantEntries(
     entries.push({
       pid: item.row.pid,
       ppid: item.row.ppid,
-      pgid: Option.fromNullishOr(item.row.pgid),
+      pgid: item.row.pgid,
       status: item.row.status,
       cpuPercent: item.row.cpuPercent,
       rssBytes: item.row.rssBytes,

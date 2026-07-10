@@ -1,4 +1,4 @@
-import { describe, expect, it } from "@effect/vitest";
+import { assert, describe, it } from "@effect/vitest";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -42,11 +42,11 @@ describe("ProcessDiagnostics", () => {
         ].join("\n"),
       );
 
-      expect(rows).toEqual([
+      assert.deepEqual(rows, [
         {
           pid: 10,
           ppid: 1,
-          pgid: 10,
+          pgid: Option.some(10),
           status: "Ss",
           cpuPercent: 0,
           rssBytes: 1024 * 1024,
@@ -56,7 +56,7 @@ describe("ProcessDiagnostics", () => {
         {
           pid: 11,
           ppid: 10,
-          pgid: 10,
+          pgid: Option.some(10),
           status: "S+",
           cpuPercent: 12.5,
           rssBytes: 20480 * 1024,
@@ -64,6 +64,43 @@ describe("ProcessDiagnostics", () => {
           command: "codex app-server --config /tmp/one two",
         },
       ]);
+    }),
+  );
+
+  it.effect("parses Windows process JSON through Schema and skips invalid rows", () =>
+    Effect.sync(() => {
+      const rows = ProcessDiagnostics.parseWindowsProcessRows(
+        JSON.stringify([
+          {
+            ProcessId: 10,
+            ParentProcessId: 1,
+            CommandLine: "",
+            Name: "node.exe",
+            Status: "",
+            WorkingSetSize: 1024.4,
+            PercentProcessorTime: 12.5,
+          },
+          {
+            ProcessId: "not-a-number",
+            ParentProcessId: 1,
+            Name: "bad.exe",
+          },
+        ]),
+      );
+
+      assert.deepEqual(rows, [
+        {
+          pid: 10,
+          ppid: 1,
+          pgid: Option.none(),
+          status: "Live",
+          cpuPercent: 12.5,
+          rssBytes: 1024,
+          elapsed: "",
+          command: "node.exe",
+        },
+      ]);
+      assert.deepEqual(ProcessDiagnostics.parseWindowsProcessRows("not-json"), []);
     }),
   );
 
@@ -76,7 +113,7 @@ describe("ProcessDiagnostics", () => {
           {
             pid: 100,
             ppid: 1,
-            pgid: 100,
+            pgid: Option.some(100),
             status: "S",
             cpuPercent: 0,
             rssBytes: 1_000,
@@ -86,7 +123,7 @@ describe("ProcessDiagnostics", () => {
           {
             pid: 101,
             ppid: 100,
-            pgid: 100,
+            pgid: Option.some(100),
             status: "S",
             cpuPercent: 1.5,
             rssBytes: 2_000,
@@ -96,7 +133,7 @@ describe("ProcessDiagnostics", () => {
           {
             pid: 102,
             ppid: 101,
-            pgid: 100,
+            pgid: Option.some(100),
             status: "R",
             cpuPercent: 3.25,
             rssBytes: 4_000,
@@ -106,7 +143,7 @@ describe("ProcessDiagnostics", () => {
           {
             pid: 200,
             ppid: 1,
-            pgid: 200,
+            pgid: Option.some(200),
             status: "S",
             cpuPercent: 99,
             rssBytes: 8_000,
@@ -116,7 +153,7 @@ describe("ProcessDiagnostics", () => {
           {
             pid: 201,
             ppid: 100,
-            pgid: 100,
+            pgid: Option.some(100),
             status: "R",
             cpuPercent: 9,
             rssBytes: 9_000,
@@ -126,15 +163,21 @@ describe("ProcessDiagnostics", () => {
         ],
       });
 
-      expect(diagnostics.serverPid).toBe(100);
-      expect(DateTime.formatIso(diagnostics.readAt)).toBe("2026-05-05T10:00:00.000Z");
-      expect(diagnostics.processCount).toBe(2);
-      expect(diagnostics.totalRssBytes).toBe(6_000);
-      expect(diagnostics.totalCpuPercent).toBe(4.75);
-      expect(diagnostics.processes.map((process) => process.pid)).toEqual([101, 102]);
-      expect(diagnostics.processes.map((process) => process.depth)).toEqual([0, 1]);
-      expect(Option.getOrNull(diagnostics.processes[0]!.pgid)).toBe(100);
-      expect(diagnostics.processes[0]?.childPids).toEqual([102]);
+      assert.equal(diagnostics.serverPid, 100);
+      assert.equal(DateTime.formatIso(diagnostics.readAt), "2026-05-05T10:00:00.000Z");
+      assert.equal(diagnostics.processCount, 2);
+      assert.equal(diagnostics.totalRssBytes, 6_000);
+      assert.equal(diagnostics.totalCpuPercent, 4.75);
+      assert.deepEqual(
+        diagnostics.processes.map((process) => process.pid),
+        [101, 102],
+      );
+      assert.deepEqual(
+        diagnostics.processes.map((process) => process.depth),
+        [0, 1],
+      );
+      assert.equal(Option.getOrNull(diagnostics.processes[0]!.pgid), 100);
+      assert.deepEqual(diagnostics.processes[0]?.childPids, [102]);
     }),
   );
 
@@ -147,7 +190,7 @@ describe("ProcessDiagnostics", () => {
           {
             pid: 101,
             ppid: 100,
-            pgid: 100,
+            pgid: Option.some(100),
             status: "S",
             cpuPercent: 0,
             rssBytes: 100,
@@ -157,7 +200,7 @@ describe("ProcessDiagnostics", () => {
           {
             pid: 103,
             ppid: 101,
-            pgid: 100,
+            pgid: Option.some(100),
             status: "S",
             cpuPercent: 0,
             rssBytes: 100,
@@ -167,7 +210,7 @@ describe("ProcessDiagnostics", () => {
           {
             pid: 102,
             ppid: 101,
-            pgid: 100,
+            pgid: Option.some(100),
             status: "S",
             cpuPercent: 0,
             rssBytes: 100,
@@ -177,7 +220,10 @@ describe("ProcessDiagnostics", () => {
         ],
       });
 
-      expect(diagnostics.processes.map((process) => process.pid)).toEqual([101, 102, 103]);
+      assert.deepEqual(
+        diagnostics.processes.map((process) => process.pid),
+        [101, 102, 103],
+      );
     }),
   );
 
@@ -210,8 +256,11 @@ describe("ProcessDiagnostics", () => {
         Effect.provide(layer),
       );
 
-      expect(diagnostics.processes.map((process) => process.pid)).toEqual([4242]);
-      expect(commands).toEqual([
+      assert.deepEqual(
+        diagnostics.processes.map((process) => process.pid),
+        [4242],
+      );
+      assert.deepEqual(commands, [
         {
           command: "ps",
           args: ["-axo", "pid=,ppid=,pgid=,stat=,pcpu=,rss=,etime=,command="],
@@ -241,7 +290,7 @@ describe("ProcessDiagnostics", () => {
         Effect.flip,
       );
 
-      expect(error).toMatchObject({
+      assert.deepInclude(error, {
         _tag: "ProcessDiagnosticsQueryFailedError",
         command: "ps",
         argCount: 2,
@@ -252,7 +301,8 @@ describe("ProcessDiagnostics", () => {
         stdoutTruncated: false,
         stderrTruncated: false,
       });
-      expect(error.message).toBe(
+      assert.equal(
+        error.message,
         `Process diagnostics query 'ps' failed with exit code 17 in '${process.cwd()}'.`,
       );
     }),
@@ -280,7 +330,7 @@ describe("ProcessDiagnostics", () => {
         Effect.provide(layer),
       );
 
-      expect(result).toEqual({
+      assert.deepEqual(result, {
         pid: 4242,
         signal: "SIGINT",
         signaled: false,
