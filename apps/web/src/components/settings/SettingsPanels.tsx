@@ -36,7 +36,14 @@ import { ProviderModelPicker } from "../chat/ProviderModelPicker";
 import { TraitsPicker } from "../chat/TraitsPicker";
 import { isElectron } from "../../env";
 import { buildHostedChannelSelectionUrl, type HostedAppChannel } from "../../hostedPairing";
-import { useTheme } from "../../hooks/useTheme";
+import {
+  DEFAULT_SYSTEM_DARK_THEME,
+  DEFAULT_SYSTEM_LIGHT_THEME,
+  isSystemDarkThemePreference,
+  isSystemLightThemePreference,
+  isThemePreference,
+  useTheme,
+} from "../../hooks/useTheme";
 import { usePrimarySettings, useUpdatePrimarySettings } from "../../hooks/useSettings";
 import { useThreadActions } from "../../hooks/useThreadActions";
 import { useDesktopUpdateState } from "../../state/desktopUpdate";
@@ -101,6 +108,52 @@ const THEME_OPTIONS = [
   {
     value: "dark",
     label: "Dark",
+  },
+  {
+    value: "catppuccin-latte",
+    label: "Catppuccin Latte",
+  },
+  {
+    value: "catppuccin-frappe",
+    label: "Catppuccin Frappe",
+  },
+  {
+    value: "catppuccin-macchiato",
+    label: "Catppuccin Macchiato",
+  },
+  {
+    value: "catppuccin-mocha",
+    label: "Catppuccin Mocha",
+  },
+] as const;
+
+const SYSTEM_LIGHT_THEME_OPTIONS = [
+  {
+    value: "light",
+    label: "Light",
+  },
+  {
+    value: "catppuccin-latte",
+    label: "Catppuccin Latte",
+  },
+] as const;
+
+const SYSTEM_DARK_THEME_OPTIONS = [
+  {
+    value: "dark",
+    label: "Dark",
+  },
+  {
+    value: "catppuccin-frappe",
+    label: "Catppuccin Frappe",
+  },
+  {
+    value: "catppuccin-macchiato",
+    label: "Catppuccin Macchiato",
+  },
+  {
+    value: "catppuccin-mocha",
+    label: "Catppuccin Mocha",
   },
 ] as const;
 
@@ -377,7 +430,14 @@ function AboutVersionSection() {
 }
 
 export function useSettingsRestore(onRestored?: () => void) {
-  const { theme, setTheme } = useTheme();
+  const {
+    theme,
+    setTheme,
+    systemLightTheme,
+    setSystemLightTheme,
+    systemDarkTheme,
+    setSystemDarkTheme,
+  } = useTheme();
   const settings = usePrimarySettings();
   const updateSettings = useUpdatePrimarySettings();
 
@@ -389,6 +449,8 @@ export function useSettingsRestore(onRestored?: () => void) {
   const changedSettingLabels = useMemo(
     () => [
       ...(theme !== "system" ? ["Theme"] : []),
+      ...(systemLightTheme !== DEFAULT_SYSTEM_LIGHT_THEME ? ["System light theme"] : []),
+      ...(systemDarkTheme !== DEFAULT_SYSTEM_DARK_THEME ? ["System dark theme"] : []),
       ...(settings.timestampFormat !== DEFAULT_UNIFIED_SETTINGS.timestampFormat
         ? ["Time format"]
         : []),
@@ -446,6 +508,8 @@ export function useSettingsRestore(onRestored?: () => void) {
       settings.sidebarThreadPreviewCount,
       settings.timestampFormat,
       settings.wordWrap,
+      systemDarkTheme,
+      systemLightTheme,
       theme,
     ],
   );
@@ -461,6 +525,8 @@ export function useSettingsRestore(onRestored?: () => void) {
     if (!confirmed) return;
 
     setTheme("system");
+    setSystemLightTheme(DEFAULT_SYSTEM_LIGHT_THEME);
+    setSystemDarkTheme(DEFAULT_SYSTEM_DARK_THEME);
     updateSettings({
       timestampFormat: DEFAULT_UNIFIED_SETTINGS.timestampFormat,
       wordWrap: DEFAULT_UNIFIED_SETTINGS.wordWrap,
@@ -478,7 +544,14 @@ export function useSettingsRestore(onRestored?: () => void) {
       textGenerationModelSelection: DEFAULT_UNIFIED_SETTINGS.textGenerationModelSelection,
     });
     onRestored?.();
-  }, [changedSettingLabels, onRestored, setTheme, updateSettings]);
+  }, [
+    changedSettingLabels,
+    onRestored,
+    setSystemDarkTheme,
+    setSystemLightTheme,
+    setTheme,
+    updateSettings,
+  ]);
 
   return {
     changedSettingLabels,
@@ -487,7 +560,14 @@ export function useSettingsRestore(onRestored?: () => void) {
 }
 
 export function GeneralSettingsPanel() {
-  const { theme, setTheme } = useTheme();
+  const {
+    theme,
+    setTheme,
+    systemLightTheme,
+    setSystemLightTheme,
+    systemDarkTheme,
+    setSystemDarkTheme,
+  } = useTheme();
   const settings = usePrimarySettings();
   const updateSettings = useUpdatePrimarySettings();
   const observability = useAtomValue(primaryServerObservabilityAtom);
@@ -538,12 +618,12 @@ export function GeneralSettingsPanel() {
             <Select
               value={theme}
               onValueChange={(value) => {
-                if (value === "system" || value === "light" || value === "dark") {
+                if (value !== null && isThemePreference(value)) {
                   setTheme(value);
                 }
               }}
             >
-              <SelectTrigger className="w-full sm:w-40" aria-label="Theme preference">
+              <SelectTrigger className="w-full sm:w-56" aria-label="Theme preference">
                 <SelectValue>
                   {THEME_OPTIONS.find((option) => option.value === theme)?.label ?? "System"}
                 </SelectValue>
@@ -558,6 +638,85 @@ export function GeneralSettingsPanel() {
             </Select>
           }
         />
+
+        {theme === "system" ? (
+          <>
+            <SettingsRow
+              title="System light theme"
+              description="Used when your browser or OS is in light mode."
+              resetAction={
+                systemLightTheme !== DEFAULT_SYSTEM_LIGHT_THEME ? (
+                  <SettingResetButton
+                    label="system light theme"
+                    onClick={() => setSystemLightTheme(DEFAULT_SYSTEM_LIGHT_THEME)}
+                  />
+                ) : null
+              }
+              control={
+                <Select
+                  value={systemLightTheme}
+                  onValueChange={(value) => {
+                    if (value !== null && isSystemLightThemePreference(value)) {
+                      setSystemLightTheme(value);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-full sm:w-56" aria-label="System light theme">
+                    <SelectValue>
+                      {SYSTEM_LIGHT_THEME_OPTIONS.find(
+                        (option) => option.value === systemLightTheme,
+                      )?.label ?? "Light"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectPopup align="end" alignItemWithTrigger={false}>
+                    {SYSTEM_LIGHT_THEME_OPTIONS.map((option) => (
+                      <SelectItem hideIndicator key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectPopup>
+                </Select>
+              }
+            />
+
+            <SettingsRow
+              title="System dark theme"
+              description="Used when your browser or OS is in dark mode."
+              resetAction={
+                systemDarkTheme !== DEFAULT_SYSTEM_DARK_THEME ? (
+                  <SettingResetButton
+                    label="system dark theme"
+                    onClick={() => setSystemDarkTheme(DEFAULT_SYSTEM_DARK_THEME)}
+                  />
+                ) : null
+              }
+              control={
+                <Select
+                  value={systemDarkTheme}
+                  onValueChange={(value) => {
+                    if (value !== null && isSystemDarkThemePreference(value)) {
+                      setSystemDarkTheme(value);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-full sm:w-56" aria-label="System dark theme">
+                    <SelectValue>
+                      {SYSTEM_DARK_THEME_OPTIONS.find((option) => option.value === systemDarkTheme)
+                        ?.label ?? "Dark"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectPopup align="end" alignItemWithTrigger={false}>
+                    {SYSTEM_DARK_THEME_OPTIONS.map((option) => (
+                      <SelectItem hideIndicator key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectPopup>
+                </Select>
+              }
+            />
+          </>
+        ) : null}
 
         <SettingsRow
           title="Time format"

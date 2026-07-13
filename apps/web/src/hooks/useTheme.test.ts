@@ -26,6 +26,73 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+describe("theme preferences", () => {
+  it("reads and writes Catppuccin theme preferences", async () => {
+    const storage = createStorage();
+    vi.stubGlobal("window", { localStorage: storage });
+
+    const {
+      readSystemDarkThemePreference,
+      readSystemLightThemePreference,
+      readThemePreference,
+      writeSystemDarkThemePreference,
+      writeSystemLightThemePreference,
+      writeThemePreference,
+    } = await import("./useTheme");
+
+    storage.setItem("t3code:theme", "catppuccin-latte");
+    expect(readThemePreference()).toBe("catppuccin-latte");
+
+    writeThemePreference("catppuccin-mocha");
+    expect(storage.getItem("t3code:theme")).toBe("catppuccin-mocha");
+    expect(readThemePreference()).toBe("catppuccin-mocha");
+
+    writeSystemLightThemePreference("catppuccin-latte");
+    writeSystemDarkThemePreference("catppuccin-frappe");
+    expect(storage.getItem("t3code:theme:system-light")).toBe("catppuccin-latte");
+    expect(storage.getItem("t3code:theme:system-dark")).toBe("catppuccin-frappe");
+    expect(readSystemLightThemePreference()).toBe("catppuccin-latte");
+    expect(readSystemDarkThemePreference()).toBe("catppuccin-frappe");
+  });
+
+  it("falls back to system for unknown theme preferences", async () => {
+    const storage = createStorage();
+    storage.setItem("t3code:theme", "catppuccin-machiato");
+    vi.stubGlobal("window", { localStorage: storage });
+
+    const { readThemePreference } = await import("./useTheme");
+
+    expect(readThemePreference()).toBe("system");
+  });
+
+  it("resolves Catppuccin themes to app and desktop appearance modes", async () => {
+    const { resolveDesktopThemePreference, resolveEffectiveTheme, resolveThemeAppearance } =
+      await import("./useTheme");
+
+    expect(resolveThemeAppearance("catppuccin-latte", true)).toBe("light");
+    expect(resolveThemeAppearance("catppuccin-frappe", false)).toBe("dark");
+    expect(resolveThemeAppearance("catppuccin-macchiato", false)).toBe("dark");
+    expect(resolveThemeAppearance("catppuccin-mocha", false)).toBe("dark");
+    expect(resolveEffectiveTheme("system", false, "catppuccin-latte", "catppuccin-mocha")).toBe(
+      "catppuccin-latte",
+    );
+    expect(resolveEffectiveTheme("system", true, "catppuccin-latte", "catppuccin-mocha")).toBe(
+      "catppuccin-mocha",
+    );
+    expect(resolveThemeAppearance("system", false, "catppuccin-latte", "catppuccin-mocha")).toBe(
+      "light",
+    );
+    expect(resolveThemeAppearance("system", true, "catppuccin-latte", "catppuccin-frappe")).toBe(
+      "dark",
+    );
+    expect(resolveDesktopThemePreference("catppuccin-latte", true)).toBe("light");
+    expect(resolveDesktopThemePreference("catppuccin-frappe", false)).toBe("dark");
+    expect(resolveDesktopThemePreference("catppuccin-macchiato", false)).toBe("dark");
+    expect(resolveDesktopThemePreference("catppuccin-mocha", false)).toBe("dark");
+    expect(resolveDesktopThemePreference("system", true)).toBe("system");
+  });
+});
+
 describe("theme failure handling", () => {
   it("preserves exact storage causes and operation context", async () => {
     const readCause = new Error("storage read blocked");
