@@ -294,20 +294,16 @@ export interface SidebarHoverPrewarmController {
 export function createSidebarHoverPrewarmController(input: {
   delayMs: number;
   onPrewarmTargetChange: (threadKey: string | null) => void;
-  setTimeoutFn?: typeof globalThis.setTimeout;
-  clearTimeoutFn?: typeof globalThis.clearTimeout;
 }): SidebarHoverPrewarmController {
-  const setTimeoutFn = input.setTimeoutFn ?? globalThis.setTimeout;
-  const clearTimeoutFn = input.clearTimeoutFn ?? globalThis.clearTimeout;
   let target: string | null = null;
   let pendingKey: string | null = null;
-  let timeoutId: NodeJS.Timeout | null = null;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
   const clearPending = () => {
     if (timeoutId === null) {
       return;
     }
-    clearTimeoutFn(timeoutId);
+    clearTimeout(timeoutId);
     timeoutId = null;
     pendingKey = null;
   };
@@ -334,7 +330,7 @@ export function createSidebarHoverPrewarmController(input: {
 
       clearPending();
       pendingKey = threadKey;
-      timeoutId = setTimeoutFn(() => {
+      timeoutId = setTimeout(() => {
         timeoutId = null;
         pendingKey = null;
         target = threadKey;

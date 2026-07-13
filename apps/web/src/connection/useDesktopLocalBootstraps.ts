@@ -1,5 +1,5 @@
 import type { DesktopEnvironmentBootstrap } from "@t3tools/contracts";
-import { useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 
 import { readDesktopSecondaryBootstraps } from "./desktopLocal";
 
@@ -26,53 +26,29 @@ function bootstrapsEqual(
   });
 }
 
-// One shared poller for all consumers (sidebar, command palette, ...): a single
-// interval runs only while someone is subscribed, and listeners are notified
-// only when the topology actually changed — each poll returns a fresh array,
-// so publishing it unconditionally would re-render every consumer per tick.
-const listeners = new Set<() => void>();
-let currentSnapshot: ReadonlyArray<DesktopEnvironmentBootstrap> | null = null;
-let pollInterval: ReturnType<typeof setInterval> | null = null;
-
-function poll(): void {
-  const next = readDesktopSecondaryBootstraps();
-  if (currentSnapshot !== null && bootstrapsEqual(currentSnapshot, next)) {
-    return;
-  }
-  currentSnapshot = next;
-  for (const listener of listeners) {
-    listener();
-  }
-}
-
-function subscribe(listener: () => void): () => void {
-  listeners.add(listener);
-  if (pollInterval === null) {
-    poll();
-    pollInterval = setInterval(poll, DESKTOP_LOCAL_BOOTSTRAP_POLL_MS);
-  }
-  return () => {
-    listeners.delete(listener);
-    if (listeners.size === 0 && pollInterval !== null) {
-      clearInterval(pollInterval);
-      pollInterval = null;
-    }
-  };
-}
-
-function getSnapshot(): ReadonlyArray<DesktopEnvironmentBootstrap> {
-  // First read happens during render, before subscribe() has polled.
-  currentSnapshot ??= readDesktopSecondaryBootstraps();
-  return currentSnapshot;
-}
-
 /**
  * Reactively track the desktop's secondary local backends (e.g. a parallel WSL
  * backend). The bridge exposes no change event, so we re-read on an interval;
- * failed reads retain the latest successful snapshot, while a successful empty
- * read clears it. Use this instead of polling the bridge ad hoc so every
- * renderer consumer reads the same topology.
+ * each poll returns a fresh array, so the previous reference is kept when the
+ * topology is unchanged to avoid re-rendering consumers every tick. Use this
+ * instead of polling the bridge ad hoc so every renderer consumer reads the
+ * same topology.
  */
 export function useDesktopLocalBootstraps(): ReadonlyArray<DesktopEnvironmentBootstrap> {
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  const [bootstraps, setBootstraps] = useState<ReadonlyArray<DesktopEnvironmentBootstrap>>(
+    readDesktopSecondaryBootstraps,
+  );
+
+  useEffect(() => {
+    const read = () =>
+      setBootstraps((previous) => {
+        const next = readDesktopSecondaryBootstraps();
+        return bootstrapsEqual(previous, next) ? previous : next;
+      });
+    read();
+    const interval = setInterval(read, DESKTOP_LOCAL_BOOTSTRAP_POLL_MS);
+    return () => clearInterval(interval);
+  }, []);
+
+  return bootstraps;
 }

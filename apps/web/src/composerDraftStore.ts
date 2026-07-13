@@ -1815,14 +1815,6 @@ function migratePersistedComposerDraftStoreState(
   };
 }
 
-// Runs on every store update (each prompt keystroke); drafts are immutable
-// snapshots, so unchanged drafts reuse their previously partialized form
-// instead of re-cloning nested contexts/annotations/comments per update.
-const partializedDraftCache = new WeakMap<
-  ComposerThreadDraftState,
-  PersistedComposerThreadDraftState | null
->();
-
 function partializeComposerDraftStoreState(
   state: ComposerDraftStoreState,
 ): PersistedComposerDraftStoreState {
@@ -1833,16 +1825,7 @@ function partializeComposerDraftStoreState(
     if (typeof threadKey !== "string" || threadKey.length === 0) {
       continue;
     }
-    const cached = partializedDraftCache.get(draft);
-    if (cached !== undefined) {
-      if (cached !== null) {
-        persistedDraftsByThreadKey[threadKey] =
-          cached as DeepMutable<PersistedComposerThreadDraftState>;
-      }
-      continue;
-    }
     const persisted = partializeComposerThreadDraft(draft);
-    partializedDraftCache.set(draft, persisted);
     if (persisted !== null) {
       persistedDraftsByThreadKey[threadKey] =
         persisted as DeepMutable<PersistedComposerThreadDraftState>;

@@ -250,7 +250,8 @@ function SidebarThreadDetailPrewarmer({ threadRef }: { readonly threadRef: Scope
 }
 
 // Self-contained so hover changes re-render only this component, never the
-// sidebar tree. Delegated `pointerover` avoids per-row handler props.
+// sidebar tree. Delegated `pointerover` avoids threading a hover callback
+// through the memoized row tree.
 function SidebarHoverThreadPrewarmer() {
   const [prewarmThreadKey, setPrewarmThreadKey] = useState<string | null>(null);
 

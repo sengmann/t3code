@@ -1366,42 +1366,6 @@ function compareActivityLifecycleRank(kind: string): number {
   return 1;
 }
 
-function isSortedByCreatedAt(rows: ReadonlyArray<TimelineEntry>): boolean {
-  for (let index = 1; index < rows.length; index += 1) {
-    if (rows[index - 1]!.createdAt.localeCompare(rows[index]!.createdAt) > 0) {
-      return false;
-    }
-  }
-  return true;
-}
-
-// Stable k-way merge of per-kind rows that are each already in createdAt order
-// (the reducers maintain that invariant). Equal timestamps keep the same order
-// a stable sort of the concatenation would produce.
-function mergeTimelineRows(sources: ReadonlyArray<ReadonlyArray<TimelineEntry>>): TimelineEntry[] {
-  const merged: TimelineEntry[] = [];
-  const cursors = sources.map(() => 0);
-  const total = sources.reduce((sum, rows) => sum + rows.length, 0);
-  while (merged.length < total) {
-    let nextSource = -1;
-    for (let index = 0; index < sources.length; index += 1) {
-      const candidate = sources[index]![cursors[index]!];
-      if (candidate === undefined) {
-        continue;
-      }
-      if (
-        nextSource === -1 ||
-        candidate.createdAt.localeCompare(sources[nextSource]![cursors[nextSource]!]!.createdAt) < 0
-      ) {
-        nextSource = index;
-      }
-    }
-    merged.push(sources[nextSource]![cursors[nextSource]!]!);
-    cursors[nextSource] = cursors[nextSource]! + 1;
-  }
-  return merged;
-}
-
 export function deriveTimelineEntries(
   messages: ReadonlyArray<ChatMessage>,
   proposedPlans: ReadonlyArray<ProposedPlan>,
@@ -1425,10 +1389,9 @@ export function deriveTimelineEntries(
     createdAt: entry.createdAt,
     entry,
   }));
-  const sources = [messageRows, proposedPlanRows, workRows];
-  return sources.every(isSortedByCreatedAt)
-    ? mergeTimelineRows(sources)
-    : sources.flat().toSorted((a, b) => a.createdAt.localeCompare(b.createdAt));
+  return [...messageRows, ...proposedPlanRows, ...workRows].toSorted((a, b) =>
+    a.createdAt.localeCompare(b.createdAt),
+  );
 }
 
 export function inferCheckpointTurnCountByTurnId(
