@@ -123,6 +123,20 @@ describe("detectSourceControlProviderFromRemoteUrl", () => {
     ).toBe("bitbucket");
   });
 
+  it("detects GitHub Enterprise Cloud data residency SSH remotes", () => {
+    expect(
+      detectSourceControlProviderFromRemoteUrl("octocorp@octocorp.ghe.com:owner/repo.git"),
+    ).toEqual({
+      kind: "github",
+      name: "GitHub Self-Hosted",
+      baseUrl: "https://octocorp.ghe.com",
+    });
+    expect(
+      detectSourceControlProviderFromRemoteUrl("https://octocorp.ghe.com.example/owner/repo.git")
+        ?.kind,
+    ).toBe("unknown");
+  });
+
   it("does not match provider names embedded in unrelated DNS labels", () => {
     expect(
       detectSourceControlProviderFromRemoteUrl("https://notgithub.example.com/owner/repo.git")
